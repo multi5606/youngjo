@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>날아라 멀캠러</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --panel:#ffffff;
+      --text:#0e1220;
+      --accent:#ff7a17;
+      --muted:#6b7280;
+      --line:#e9edf3;
+      --shadow:rgba(0,0,0,0.06);
+      --logo:64px;   /* 로고 크기 변수 (32px → 64px로 확대) */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, "Noto Sans KR", "맑은 고딕", sans-serif;}
+    #gameWrap{
+      position:relative;width:100%;
+      height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+      overflow:hidden; background:var(--bg);
+    }
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#ffffff;}
+
+    /* 로고 이미지 */
+    .mc-logo-img{
+      position:absolute; 
+      left:12px; 
+      top: calc(env(safe-area-inset-top) + 10px);
+      z-index:20; 
+      width:var(--logo); 
+      height:var(--logo);
+      object-fit:contain;
+      -webkit-user-drag:none; 
+      user-select:none;
+    }
+
+    /* HUD, 버튼, 패널 등 기존 스타일 그대로 */
+    .cornerHUD{
+      position:absolute; left:12px; top:calc(var(--logo) + 24px);
+      z-index:8; display:flex; flex-direction:column; gap:6px;
+      background:rgba(255,255,255,0.85); padding:8px 10px; border-radius:10px; border:1px solid var(--line);
+      backdrop-filter: blur(4px);
+      font-weight:700;
+    }
+    .soundToggle{
+      position:absolute; right:12px; top: calc(env(safe-area-inset-top) + 10px);
+      z-index:20; user-select:none;
+      background:rgba(255,255,255,0.85); border:1px solid var(--line); border-radius:999px;
+      padding:4px 10px; font-weight:800; display:inline-flex; align-items:center; gap:8px;
+      backdrop-filter: blur(4px);
+    }
+    .soundToggle button{ background:none; border:none; font:inherit; cursor:pointer; }
+    .soundToggle .icon{font-size:18px}
+    .overlay{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(255,255,255,0.75);
+      padding:clamp(12px, 3vw, 24px); z-index:6;
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    }
+    .panel{
+      width:min(760px,94vw);
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:clamp(14px, 2.8vw, 22px);
+      box-shadow:0 10px 24px var(--shadow);
+    }
+    .title{font-weight:800; font-size: clamp(20px, 5.2vw, 34px); line-height:1.2; margin:4px 0 8px;}
+    .subtitle{color:var(--muted); margin:0 0 14px; font-size:clamp(12px, 3.4vw, 14px)}
+    .grid{display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));}
+    .charBtn{display:flex; align-items:center; justify-content:center;
+      padding:clamp(10px, 3.2vw, 14px) 0;
+      border-radius:12px; border:1px solid var(--line);
+      background:#fff; cursor:pointer; transition: all .15s ease;
+      user-select:none; box-shadow:0 2px 6px var(--shadow);}
+    .charBtn img{width:clamp(28px, 6.4vw, 32px); height:clamp(28px, 6.4vw, 32px)}
+    .charBtn[data-selected="true"]{outline:2px solid var(--accent); transform: translateY(-2px); background:#fff6ef;}
+    .btn{appearance:none; border:1px solid var(--line); background:#fff; color:#0b1020;
+      padding:12px 16px; border-radius:12px; cursor:pointer; font-weight:800; transition:.15s;
+      box-shadow:0 2px 6px var(--shadow); font-size:clamp(14px, 3.6vw, 16px);}
+    .btn.primary{background:var(--accent); border-color:#ef6b05; color:#111;}
+    .btn:active{transform: translateY(1px)}
+  </style>
+</head>
+<body>
+  <div id="gameWrap">
+    <canvas id="game"></canvas>
+
+    <!-- 로고 크게 (64px) -->
+    <img class="mc-logo-img" alt="multicampus" 
+         src="https://api.multicampus.com/ssf/v1/resource/public/images/FILBS202506207041267"/>
+
+    <div class="soundToggle"><span class="icon" id="soundIcon">🔊</span><button id="btnSound">사운드 ON</button></div>
+
+    <!-- HUD, 게임 시작/종료 화면 등 -->
+    <div class="cornerHUD" id="hud" style="display:none">
+      <span class="tag" id="hudDiff">난이도: -</span>
+      <span class="tag" id="hudChar">캐릭터: -</span>
+      <span>점수 <b id="hudScore">0</b></span>
+    </div>
+
+    <!-- Start Screen -->
+    <div class="overlay" id="startScreen">
+      <div class="panel">
+        <div class="title">날아라 멀캠러!</div>
+        <p class="subtitle">멀리 달려보세요 🚀</p>
+        <div class="grid" id="charGrid"></div>
+        <button class="btn primary" id="btnStart">게임 시작</button>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div class="overlay" id="gameOverScreen" style="display:none">
+      <div class="panel">
+        <div class="title">게임 종료</div>
+        <div><span id="finalScore">0</span> 점</div>
+        <button class="btn" id="btnRetry">다시 하기</button>
+        <button class="btn" id="btnGoHome">처음으로</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 게임 로직 (간단 버전)
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    let W=0,H=0,DPR=window.devicePixelRatio||1;
+    function resize(){
+      W=canvas.clientWidth;H=canvas.clientHeight;
+      canvas.width=W*DPR;canvas.height=H*DPR;
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+    }
+    window.addEventListener("resize",resize);resize();
+
+    let running=false,score=0;
+    const startScreen=document.getElementById("startScreen");
+    const gameOverScreen=document.getElementById("gameOverScreen");
+    const finalScore=document.getElementById("finalScore");
+    const hud=document.getElementById("hud");
+    const hudScore=document.getElementById("hudScore");
+
+    document.getElementById("btnStart").onclick=()=>{startGame();}
+    document.getElementById("btnRetry").onclick=()=>{startGame();}
+    document.getElementById("btnGoHome").onclick=()=>{startScreen.style.display="flex";gameOverScreen.style.display="none";};
+
+    function startGame(){
+      running=true;score=0;
+      startScreen.style.display="none";
+      gameOverScreen.style.display="none";
+      hud.style.display="flex";
+      loop();
+    }
+    function endGame(){
+      running=false;
+      hud.style.display="none";
+      finalScore.textContent=score;
+      gameOverScreen.style.display="flex";
+    }
+
+    function loop(){
+      if(!running)return;
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle="#f0f0f0";ctx.fillRect(0,H-50,W,50);
+      ctx.fillStyle="#333";ctx.fillText("🐖",100,H-70);
+      score++;
+      hudScore.textContent=score;
+      if(score>300){endGame();}
+      requestAnimationFrame(loop);
+    }
+  </script>
+</body>
+</html>
