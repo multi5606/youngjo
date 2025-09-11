@@ -5,6 +5,7 @@
   <meta name="viewport"
         content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <title>날아라 멀캠러</title>
+  <!-- 파비콘: 주황색 동그라미 -->
   <link rel="icon" type="image/svg+xml"
         href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="28" fill="%23ff7a17"/></svg>'>
   <meta name="theme-color" content="#ffffff" />
@@ -32,12 +33,17 @@
       position:absolute; left:12px; top: calc(env(safe-area-inset-top) + 10px);
       z-index:20; width:var(--logo); height:var(--logo); object-fit:contain; -webkit-user-drag:none; pointer-events:none;
     }
+    /* HUD: 라이프/점수만 표시 */
     .cornerHUD{
       position:absolute; left:12px; top:calc(var(--logo) + 24px);
       z-index:8; display:flex; flex-direction:column; gap:6px;
       background:rgba(255,255,255,0.88); padding:8px 10px; border-radius:10px; border:1px solid var(--line);
       backdrop-filter: blur(4px); font-weight:700;
     }
+    .lifeRow{ display:flex; align-items:center; gap:6px; }
+    .heart{ font-size:18px; line-height:1; }
+    .scoreLabel{ font-weight:800; }
+
     .soundToggle{
       position:absolute; right:12px; top: calc(env(safe-area-inset-top) + 10px);
       z-index:20; background:rgba(255,255,255,0.88); border:1px solid var(--line); border-radius:999px;
@@ -45,6 +51,7 @@
     }
     .soundToggle button{ background:none; border:none; font:inherit; cursor:pointer; }
     .soundToggle .icon{font-size:18px}
+
     .overlay{
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       background:rgba(255,255,255,0.75); padding:clamp(12px, 3vw, 24px); z-index:6;
@@ -56,12 +63,6 @@
     }
     .title{font-weight:800; font-size: clamp(20px, 5.2vw, 34px); line-height:1.2; margin:4px 0 8px;}
     .subtitle{color:var(--muted); margin:0 0 14px; font-size:clamp(12px, 3.4vw, 14px)}
-    .grid{display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));}
-    .charBtn{display:flex; align-items:center; justify-content:center; padding:clamp(10px, 3.2vw, 14px) 0;
-      border-radius:12px; border:1px solid var(--line); background:#fff; cursor:pointer; transition: all .15s ease;
-      user-select:none; box-shadow:0 2px 6px var(--shadow);}
-    .charBtn img{width:clamp(28px, 6.4vw, 32px); height:clamp(28px, 6.4vw, 32px)}
-    .charBtn[data-selected="true"]{outline:2px solid var(--accent); transform: translateY(-2px); background:#fff6ef;}
     .btn{appearance:none; border:1px solid var(--line); background:#fff; color:#0b1020;
       padding:12px 16px; border-radius:12px; cursor:pointer; font-weight:800; transition:.15s;
       box-shadow:0 2px 6px var(--shadow); font-size:clamp(14px, 3.6vw, 16px);}
@@ -79,18 +80,17 @@
 
     <div class="soundToggle"><span class="icon" id="soundIcon">🔊</span><button id="btnSound" aria-pressed="false">사운드 ON</button></div>
 
+    <!-- HUD -->
     <div class="cornerHUD" id="hud" style="display:none">
-      <span class="tag" id="hudDiff">난이도: -</span>
-      <span class="tag" id="hudChar">캐릭터: -</span>
-      <span>점수 <b id="hudScore">0</b></span>
+      <div class="lifeRow" id="lifeRow" aria-label="남은 목숨"></div>
+      <div class="scoreLabel">점수 <b id="hudScore">0</b></div>
     </div>
 
     <!-- Start Screen -->
     <div class="overlay" id="startScreen" aria-modal="true">
       <div class="panel">
         <div class="title">날아라 멀캠러!</div>
-        <p class="subtitle">멀리 달려보세요 🚀</p>
-        <div class="grid" id="charGrid"></div>
+        <p class="subtitle">장애물 피해 멀리 달려보세요 🚀</p>
         <button class="btn primary" id="btnStart">게임 시작</button>
       </div>
     </div>
@@ -107,10 +107,10 @@
   </div>
 
   <script>
-    // ===== 공통 세팅 =====
+    // ===== 기본 세팅 =====
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
-    let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+    let W=0, H=0, DPR=Math.min(window.devicePixelRatio||1, 2);
 
     function applyCanvasSize() {
       const cw = Math.floor(canvas.clientWidth);
@@ -121,47 +121,75 @@
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.textBaseline = "alphabetic";
     }
-    new ResizeObserver(applyCanvasSize).observe(canvas);
-    applyCanvasSize();
+    new ResizeObserver(applyCanvasSize).observe(canvas); applyCanvasSize();
+
+    const groundY = () => H - 50;
 
     // ===== 게임 상태 =====
-    let running = false, score = 0;
-    const startScreen  = document.getElementById("startScreen");
-    const gameOverScreen = document.getElementById("gameOverScreen");
-    const finalScore = document.getElementById("finalScore");
+    let running=false, score=0;
+    let lives=3, maxLives=5;
     const hud = document.getElementById("hud");
     const hudScore = document.getElementById("hudScore");
+    const lifeRow = document.getElementById("lifeRow");
+    const startScreen = document.getElementById("startScreen");
+    const gameOverScreen = document.getElementById("gameOverScreen");
+    const finalScore = document.getElementById("finalScore");
 
-    document.getElementById("btnStart").addEventListener("click", startGame, { passive: true });
-    document.getElementById("btnRetry").addEventListener("click", startGame, { passive: true });
-    document.getElementById("btnGoHome").addEventListener("click", () => {
-      startScreen.style.display = "flex";
-      gameOverScreen.style.display = "none";
-    }, { passive: true });
+    document.getElementById("btnStart").addEventListener("click", startGame, {passive:true});
+    document.getElementById("btnRetry").addEventListener("click", startGame, {passive:true});
+    document.getElementById("btnGoHome").addEventListener("click", ()=> {
+      startScreen.style.display="flex"; gameOverScreen.style.display="none";
+    }, {passive:true});
 
-    // ===== 캐릭터(이모지) - 오른쪽 바라보도록 수평 반전 그리기 =====
-    const EMOJI = "🐖"; // 좌향 기본 이모지
+    // 사운드 토글(후속 확장용)
+    const btnSound = document.getElementById("btnSound");
+    const soundIcon = document.getElementById("soundIcon");
+    let soundOn = true;
+    btnSound.addEventListener("click", ()=>{
+      soundOn = !soundOn;
+      btnSound.textContent = soundOn ? "사운드 ON" : "사운드 OFF";
+      btnSound.setAttribute("aria-pressed", String(soundOn));
+      soundIcon.textContent = soundOn ? "🔊" : "🔇";
+    }, {passive:true});
+
+    // ===== 플레이어(이모지, 오른쪽 보게 반전) & 점프 =====
+    const EMOJI = "🐖"; // 기본 좌향 -> 반전 렌더
     const EMOJI_FONT = "28px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, emoji";
-    const groundY = () => H - 50;
-    const pig = { x: 100, y: 0 }; // y는 베이스라인 기준으로 계산
-    function drawEmojiFacingRight(text, x, y) {
+    const pig = { x: 100, y: 0, vy: 0, onGround: true, jumpCount: 0, maxJump: 2, invUntil: 0, blink: false };
+
+    function drawEmojiFacingRight(text, x, y, alpha=1) {
       ctx.save();
+      ctx.globalAlpha = alpha;
       ctx.font = EMOJI_FONT;
-      // 문자 폭 측정 후 그 폭만큼 좌표를 밀고 좌우반전
-      const m = ctx.measureText(text);
-      const w = Math.max(24, m.width);
+      const w = Math.max(24, ctx.measureText(text).width);
       ctx.translate(x + w, 0);
       ctx.scale(-1, 1);
       ctx.fillText(text, 0, y);
       ctx.restore();
     }
 
-    // 점프(옵션) – 간단한 가속도
-    let vy = 0, onGround = true;
+    function updateLivesHUD() {
+      lifeRow.innerHTML = "";
+      for (let i=0;i<lives;i++){
+        const span = document.createElement("span");
+        span.className = "heart";
+        span.textContent = "❤️";
+        lifeRow.appendChild(span);
+      }
+      if (lives === 0) {
+        const span = document.createElement("span");
+        span.className = "heart";
+        span.textContent = "🖤";
+        lifeRow.appendChild(span);
+      }
+    }
+
     function jump(){
       if (!running) return;
-      if (onGround){
-        vy = -12; onGround = false;
+      if (pig.jumpCount < pig.maxJump) {
+        pig.vy = -12;
+        pig.onGround = false;
+        pig.jumpCount++;
       }
     }
     window.addEventListener("keydown", (e)=>{
@@ -169,74 +197,160 @@
     }, { passive:false });
     canvas.addEventListener("pointerdown", ()=> jump(), { passive:true });
 
-    // ===== 장애물 시스템 =====
+    // ===== 장애물(랜덤 모양) =====
     const obstacles = [];
     let spawnTimer = 0;
     let baseSpeed = 3;
 
+    // shape: 'rect' | 'circle' | 'tri'
     function spawnObstacle() {
-      const height = 30 + Math.random()*30;       // 30~60
-      const width  = 24 + Math.random()*26;       // 24~50
-      const gapTop = groundY() - height;          // 바닥에서 세운 막대
+      const shapeTypes = ["rect", "circle", "tri"];
+      const shape = shapeTypes[(Math.random() * shapeTypes.length) | 0];
+
+      // 크기 랜덤
+      const sizeA = 24 + Math.random()*40; // 폭/지름/밑변 등
+      const sizeB = 24 + Math.random()*40; // 높이(사각/삼각)
+      const color = "#ff7a17";
+
+      const yTop = groundY() - Math.max(sizeA, sizeB) - (shape==="circle" ? 0 : 0);
+
       obstacles.push({
-        x: W + 20,
-        y: gapTop,
-        w: width,
-        h: height,
-        color: "#ff7a17"
+        shape,
+        x: W + 30,
+        y: shape === "circle" ? groundY() - sizeA/2 - 2 : groundY() - sizeB, // 원은 중심 y 사용
+        w: sizeA,
+        h: sizeB,
+        r: sizeA/2, // circle radius
+        color
       });
     }
 
     function updateObstacles() {
-      // 속도는 점수에 따라 소폭 증가
       const speed = baseSpeed + Math.min(6, score/150);
       for (const o of obstacles) o.x -= speed;
-
-      // 화면 밖 제거
-      for (let i=obstacles.length-1; i>=0; i--){
-        if (obstacles[i].x + obstacles[i].w < -40) obstacles.splice(i,1);
+      for (let i=obstacles.length-1;i>=0;i--){
+        if (obstacles[i].x + (obstacles[i].w || obstacles[i].r*2) < -60) obstacles.splice(i,1);
       }
-
-      // 주기적 생성
       if (spawnTimer <= 0) {
         spawnObstacle();
-        spawnTimer = 60 + Math.random()*50; // 1~1.8초 가량
-      } else {
-        spawnTimer--;
-      }
+        spawnTimer = 50 + Math.random()*55; // 0.9~1.75초 정도
+      } else spawnTimer--;
     }
 
     function drawObstacles() {
+      ctx.lineWidth = 2;
       for (const o of obstacles) {
-        // 외곽선과 그림자로 시인성 강화
         ctx.fillStyle = o.color;
-        ctx.fillRect(o.x, o.y, o.w, o.h);
-        ctx.lineWidth = 2;
         ctx.strokeStyle = "#e35f00";
-        ctx.strokeRect(o.x, o.y, o.w, o.h);
+        if (o.shape === "rect") {
+          ctx.fillRect(o.x, o.y, o.w, o.h);
+          ctx.strokeRect(o.x, o.y, o.w, o.h);
+        } else if (o.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
+          ctx.fill(); ctx.stroke();
+        } else if (o.shape === "tri") {
+          const base = o.w, height = o.h;
+          ctx.beginPath();
+          // 밑변은 바닥과 평행, 꼭짓점 위
+          const x1 = o.x, x2 = o.x + base, x3 = o.x + base/2;
+          const yBase = groundY();
+          ctx.moveTo(x1, yBase);
+          ctx.lineTo(x2, yBase);
+          ctx.lineTo(x3, yBase - height);
+          ctx.closePath();
+          ctx.fill(); ctx.stroke();
+          // tri의 충돌용 AABB 보정용 값 저장
+          o._aabb = { x: Math.min(x1,x2,x3), y: yBase - height, w: base, h: height };
+        }
       }
     }
 
+    function rectsOverlap(ax,ay,aw,ah, bx,by,bw,bh){
+      return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
     function checkCollision() {
-      // 캐릭터 대략적 히트박스 (이모지 주변 사각형)
+      // 캐릭터 히트박스(이모지 주변 사각형)
       const box = { x: pig.x-8, y: pig.y-24, w: 28, h: 26 };
+
       for (const o of obstacles) {
-        if (box.x < o.x + o.w && box.x + box.w > o.x &&
-            box.y < o.y + o.h && box.y + box.h > o.y) {
-          return true;
+        if (o.shape === "rect") {
+          if (rectsOverlap(box.x,box.y,box.w,box.h, o.x,o.y,o.w,o.h)) return true;
+        } else if (o.shape === "circle") {
+          // 원-사각 충돌
+          const nx = Math.max(o.x - o.r, Math.min(box.x + box.w, o.x + o.r));
+          const ny = Math.max(o.y - o.r, Math.min(box.y + box.h, o.y + o.r));
+          const dx = nx - o.x, dy = ny - o.y;
+          if (dx*dx + dy*dy <= o.r*o.r) return true;
+        } else if (o.shape === "tri") {
+          const a = o._aabb || { x:o.x, y:o.y, w:o.w, h:o.h };
+          if (rectsOverlap(box.x,box.y,box.w,box.h, a.x,a.y,a.w,a.h)) return true;
         }
       }
       return false;
     }
 
-    // ===== 루프 =====
+    // ===== 아이템(하트) =====
+    const items = []; // {type:'life', x,y, r}
+    let itemTimer = 180; // 최초 약 3초 후 등장
+
+    function spawnLifeItem() {
+      const r = 12;
+      const y = groundY() - 80 - Math.random()*60; // 공중에 살짝
+      items.push({ type:'life', x: W + 30, y, r });
+    }
+
+    function updateItems() {
+      const speed = baseSpeed + Math.min(6, score/150);
+      for (const it of items) it.x -= speed * 0.9; // 장애물보다 살짝 느리게
+      for (let i=items.length-1;i>=0;i--){
+        if (items[i].x + items[i].r < -40) items.splice(i,1);
+      }
+      if (itemTimer <= 0) {
+        // 확률적으로 생성
+        if (Math.random() < 0.45) spawnLifeItem();
+        // 다음 타이머 (약 6~10초)
+        itemTimer = 360 + Math.floor(Math.random()*240);
+      } else itemTimer--;
+    }
+
+    function drawItems() {
+      for (const it of items) {
+        if (it.type === 'life') {
+          ctx.font = "20px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, emoji";
+          ctx.fillText("❤️", it.x, it.y);
+        }
+      }
+    }
+
+    function pickupCheck() {
+      const box = { x: pig.x-8, y: pig.y-24, w: 28, h: 26 };
+      for (let i=items.length-1;i>=0;i--){
+        const it = items[i];
+        if (it.type === 'life') {
+          const ix = it.x-10, iy = it.y-18, iw = 20, ih = 22; // 이모지 대략 크기
+          if (rectsOverlap(box.x,box.y,box.w,box.h, ix,iy,iw,ih)) {
+            if (lives < maxLives) lives++;
+            updateLivesHUD();
+            items.splice(i,1);
+          }
+        }
+      }
+    }
+
+    // ===== 루프 & 충돌 처리(무적/점멸 포함) =====
     let rafId = null;
 
     function startGame(){
       cancelAnimationFrame(rafId);
       running = true; score = 0;
+      lives = 3; updateLivesHUD();
+
       obstacles.length = 0; spawnTimer = 0; baseSpeed = 3;
-      pig.y = groundY() - 20; vy = 0; onGround = true;
+      items.length = 0; itemTimer = 180;
+
+      pig.y = groundY() - 20; pig.vy = 0; pig.onGround = true; pig.jumpCount = 0; pig.invUntil = 0; pig.blink = false;
 
       startScreen.style.display = "none";
       gameOverScreen.style.display = "none";
@@ -251,6 +365,16 @@
       gameOverScreen.style.display = "flex";
     }
 
+    function takeHit() {
+      const now = performance.now();
+      if (now < pig.invUntil) return; // 무적이면 무시
+      lives = Math.max(0, lives - 1);
+      updateLivesHUD();
+      if (lives <= 0) { endGame(); return; }
+      // 1.2초 무적 + 점멸
+      pig.invUntil = now + 1200;
+    }
+
     function loop(){
       if (!running) return;
       ctx.clearRect(0,0,W,H);
@@ -260,27 +384,37 @@
       ctx.fillRect(0, groundY(), W, 50);
 
       // 중력/점프
-      vy += 0.7;
-      pig.y += vy;
+      pig.vy += 0.7;
+      pig.y += pig.vy;
       if (pig.y >= groundY() - 20) {
         pig.y = groundY() - 20;
-        vy = 0; onGround = true;
+        pig.vy = 0; pig.onGround = true; pig.jumpCount = 0;
       }
 
-      // 장애물 업데이트 & 렌더
+      // 장애물/아이템 업데이트 & 렌더
       updateObstacles();
+      updateItems();
       drawObstacles();
+      drawItems();
 
-      // 캐릭터(오른쪽 바라보게 반전)
+      // 캐릭터(무적이면 깜빡임)
+      const now = performance.now();
+      const invActive = now < pig.invUntil;
+      let alpha = 1;
+      if (invActive) {
+        // 100ms 주기로 깜빡임
+        alpha = ((now / 100 | 0) % 2) ? 0.35 : 1;
+      }
       ctx.fillStyle = "#333";
-      ctx.font = EMOJI_FONT;
-      drawEmojiFacingRight(EMOJI, pig.x, pig.y);
+      drawEmojiFacingRight(EMOJI, pig.x, pig.y, alpha);
 
       // 충돌 체크
-      if (checkCollision()) {
-        endGame();
-        return;
+      if (!invActive && checkCollision()) {
+        takeHit();
       }
+
+      // 아이템 획득 체크
+      pickupCheck();
 
       // 점수
       score++;
