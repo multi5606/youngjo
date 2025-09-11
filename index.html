@@ -5,20 +5,13 @@
   <meta name="viewport"
         content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <title>날아라 멀캠러</title>
-  <!-- 주황색 동그라미 파비콘 -->
   <link rel="icon" type="image/svg+xml"
         href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="28" fill="%23ff7a17"/></svg>'>
   <meta name="theme-color" content="#ffffff" />
   <style>
     :root{
-      --bg:#ffffff;
-      --panel:#ffffff;
-      --text:#0e1220;
-      --accent:#ff7a17;
-      --muted:#6b7280;
-      --line:#e9edf3;
-      --shadow:rgba(0,0,0,0.06);
-      /* 로고: 작은 폰에선 56px, 큰 화면에선 최대 96px */
+      --bg:#ffffff; --panel:#ffffff; --text:#0e1220; --accent:#ff7a17;
+      --muted:#6b7280; --line:#e9edf3; --shadow:rgba(0,0,0,0.06);
       --logo: clamp(56px, 8vw, 96px);
     }
     *{box-sizing:border-box}
@@ -27,79 +20,45 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, "Noto Sans KR", "맑은 고딕", sans-serif;
       -webkit-tap-highlight-color: transparent;
     }
-    /* 모바일 UX 향상: 더블탭 확대/긴 눌림/텍스트 선택 방지 */
-    body, button {
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-    }
+    body, button { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
     #gameWrap{
       position:relative;width:100%;
       height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
       overflow:hidden; background:var(--bg);
     }
-    canvas{
-      position:absolute;inset:0;width:100%;height:100%;display:block;background:#ffffff;
-      image-rendering: optimizeQuality;
-    }
-
-    /* 로고 이미지 */
+    canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#ffffff;}
     .mc-logo-img{
-      position:absolute;
-      left:12px;
-      top: calc(env(safe-area-inset-top) + 10px);
-      z-index:20;
-      width:var(--logo);
-      height:var(--logo);
-      object-fit:contain;
-      -webkit-user-drag:none;
-      user-select:none;
-      pointer-events:none;
+      position:absolute; left:12px; top: calc(env(safe-area-inset-top) + 10px);
+      z-index:20; width:var(--logo); height:var(--logo); object-fit:contain; -webkit-user-drag:none; pointer-events:none;
     }
-
-    /* HUD */
     .cornerHUD{
       position:absolute; left:12px; top:calc(var(--logo) + 24px);
       z-index:8; display:flex; flex-direction:column; gap:6px;
       background:rgba(255,255,255,0.88); padding:8px 10px; border-radius:10px; border:1px solid var(--line);
-      backdrop-filter: blur(4px);
-      font-weight:700;
+      backdrop-filter: blur(4px); font-weight:700;
     }
-
-    /* 사운드 토글 */
     .soundToggle{
       position:absolute; right:12px; top: calc(env(safe-area-inset-top) + 10px);
-      z-index:20; user-select:none;
-      background:rgba(255,255,255,0.88); border:1px solid var(--line); border-radius:999px;
-      padding:6px 12px; font-weight:800; display:inline-flex; align-items:center; gap:8px;
-      backdrop-filter: blur(4px);
+      z-index:20; background:rgba(255,255,255,0.88); border:1px solid var(--line); border-radius:999px;
+      padding:6px 12px; font-weight:800; display:inline-flex; align-items:center; gap:8px; backdrop-filter: blur(4px);
     }
     .soundToggle button{ background:none; border:none; font:inherit; cursor:pointer; }
     .soundToggle .icon{font-size:18px}
-
-    /* 오버레이 / 패널 */
     .overlay{
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      background:rgba(255,255,255,0.75);
-      padding:clamp(12px, 3vw, 24px); z-index:6;
+      background:rgba(255,255,255,0.75); padding:clamp(12px, 3vw, 24px); z-index:6;
       -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
     }
     .panel{
-      width:min(760px,94vw);
-      background:var(--panel);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:clamp(14px, 2.8vw, 22px);
-      box-shadow:0 10px 24px var(--shadow);
+      width:min(760px,94vw); background:var(--panel); border:1px solid var(--line);
+      border-radius:16px; padding:clamp(14px, 2.8vw, 22px); box-shadow:0 10px 24px var(--shadow);
     }
     .title{font-weight:800; font-size: clamp(20px, 5.2vw, 34px); line-height:1.2; margin:4px 0 8px;}
     .subtitle{color:var(--muted); margin:0 0 14px; font-size:clamp(12px, 3.4vw, 14px)}
     .grid{display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));}
-    .charBtn{display:flex; align-items:center; justify-content:center;
-      padding:clamp(10px, 3.2vw, 14px) 0;
-      border-radius:12px; border:1px solid var(--line);
-      background:#fff; cursor:pointer; transition: all .15s ease;
+    .charBtn{display:flex; align-items:center; justify-content:center; padding:clamp(10px, 3.2vw, 14px) 0;
+      border-radius:12px; border:1px solid var(--line); background:#fff; cursor:pointer; transition: all .15s ease;
       user-select:none; box-shadow:0 2px 6px var(--shadow);}
     .charBtn img{width:clamp(28px, 6.4vw, 32px); height:clamp(28px, 6.4vw, 32px)}
     .charBtn[data-selected="true"]{outline:2px solid var(--accent); transform: translateY(-2px); background:#fff6ef;}
@@ -114,14 +73,12 @@
   <div id="gameWrap">
     <canvas id="game" aria-label="게임 캔버스" role="img"></canvas>
 
-    <!-- 로고: 반응형 크기 -->
     <img class="mc-logo-img" alt="multicampus"
-         decoding="async" fetchpriority="high" referrerpolicy="no-referrer"
+         decoding="async" fetchpriority="high"
          src="https://api.multicampus.com/ssf/v1/resource/public/images/FILBS202506207041267"/>
 
     <div class="soundToggle"><span class="icon" id="soundIcon">🔊</span><button id="btnSound" aria-pressed="false">사운드 ON</button></div>
 
-    <!-- HUD -->
     <div class="cornerHUD" id="hud" style="display:none">
       <span class="tag" id="hudDiff">난이도: -</span>
       <span class="tag" id="hudChar">캐릭터: -</span>
@@ -150,34 +107,24 @@
   </div>
 
   <script>
-    // ====== 캔버스 초기화 및 리사이즈 ======
+    // ===== 공통 세팅 =====
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
-    let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2); // 메모리/성능 위해 최대 2로 캡
+    let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
 
     function applyCanvasSize() {
-      // CSS 픽셀 기준 사이즈
       const cw = Math.floor(canvas.clientWidth);
       const ch = Math.floor(canvas.clientHeight);
       W = cw; H = ch;
-
-      // 실 픽셀 해상도 적용
       canvas.width  = Math.max(1, Math.floor(cw * DPR));
       canvas.height = Math.max(1, Math.floor(ch * DPR));
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-      // 텍스트/선 두께 재설정 (리사이즈 후 필요)
-      ctx.font = "16px system-ui, -apple-system, Segoe UI, Roboto, Apple SD Gothic Neo, 'Noto Sans KR', '맑은 고딕', sans-serif";
       ctx.textBaseline = "alphabetic";
     }
-
-    // ResizeObserver로 레이아웃 변동에도 안정적으로 반응
-    const ro = new ResizeObserver(applyCanvasSize);
-    ro.observe(canvas);
-    // 초기 설정
+    new ResizeObserver(applyCanvasSize).observe(canvas);
     applyCanvasSize();
 
-    // ====== 게임 상태 ======
+    // ===== 게임 상태 =====
     let running = false, score = 0;
     const startScreen  = document.getElementById("startScreen");
     const gameOverScreen = document.getElementById("gameOverScreen");
@@ -192,29 +139,105 @@
       gameOverScreen.style.display = "none";
     }, { passive: true });
 
-    // iOS Safari 오디오 정책 대응 샘플 (실 오디오가 있다면 이 자리에서 play() 시도)
-    const btnSound = document.getElementById("btnSound");
-    const soundIcon = document.getElementById("soundIcon");
-    let soundOn = true;
-    btnSound.addEventListener("click", () => {
-      soundOn = !soundOn;
-      btnSound.textContent = soundOn ? "사운드 ON" : "사운드 OFF";
-      btnSound.setAttribute("aria-pressed", String(soundOn));
-      soundIcon.textContent = soundOn ? "🔊" : "🔇";
-      // 예: bgm?.[soundOn ? "play" : "pause"]?.();
-    }, { passive: true });
+    // ===== 캐릭터(이모지) - 오른쪽 바라보도록 수평 반전 그리기 =====
+    const EMOJI = "🐖"; // 좌향 기본 이모지
+    const EMOJI_FONT = "28px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, emoji";
+    const groundY = () => H - 50;
+    const pig = { x: 100, y: 0 }; // y는 베이스라인 기준으로 계산
+    function drawEmojiFacingRight(text, x, y) {
+      ctx.save();
+      ctx.font = EMOJI_FONT;
+      // 문자 폭 측정 후 그 폭만큼 좌표를 밀고 좌우반전
+      const m = ctx.measureText(text);
+      const w = Math.max(24, m.width);
+      ctx.translate(x + w, 0);
+      ctx.scale(-1, 1);
+      ctx.fillText(text, 0, y);
+      ctx.restore();
+    }
 
-    // 스크롤/바운스 방지 (iOS)
-    document.addEventListener("touchmove", (e) => {
-      if (e.target === canvas || e.target.closest("#gameWrap")) e.preventDefault();
-    }, { passive: false });
+    // 점프(옵션) – 간단한 가속도
+    let vy = 0, onGround = true;
+    function jump(){
+      if (!running) return;
+      if (onGround){
+        vy = -12; onGround = false;
+      }
+    }
+    window.addEventListener("keydown", (e)=>{
+      if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); jump(); }
+    }, { passive:false });
+    canvas.addEventListener("pointerdown", ()=> jump(), { passive:true });
 
-    // ====== 데모 게임 루프 ======
+    // ===== 장애물 시스템 =====
+    const obstacles = [];
+    let spawnTimer = 0;
+    let baseSpeed = 3;
+
+    function spawnObstacle() {
+      const height = 30 + Math.random()*30;       // 30~60
+      const width  = 24 + Math.random()*26;       // 24~50
+      const gapTop = groundY() - height;          // 바닥에서 세운 막대
+      obstacles.push({
+        x: W + 20,
+        y: gapTop,
+        w: width,
+        h: height,
+        color: "#ff7a17"
+      });
+    }
+
+    function updateObstacles() {
+      // 속도는 점수에 따라 소폭 증가
+      const speed = baseSpeed + Math.min(6, score/150);
+      for (const o of obstacles) o.x -= speed;
+
+      // 화면 밖 제거
+      for (let i=obstacles.length-1; i>=0; i--){
+        if (obstacles[i].x + obstacles[i].w < -40) obstacles.splice(i,1);
+      }
+
+      // 주기적 생성
+      if (spawnTimer <= 0) {
+        spawnObstacle();
+        spawnTimer = 60 + Math.random()*50; // 1~1.8초 가량
+      } else {
+        spawnTimer--;
+      }
+    }
+
+    function drawObstacles() {
+      for (const o of obstacles) {
+        // 외곽선과 그림자로 시인성 강화
+        ctx.fillStyle = o.color;
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#e35f00";
+        ctx.strokeRect(o.x, o.y, o.w, o.h);
+      }
+    }
+
+    function checkCollision() {
+      // 캐릭터 대략적 히트박스 (이모지 주변 사각형)
+      const box = { x: pig.x-8, y: pig.y-24, w: 28, h: 26 };
+      for (const o of obstacles) {
+        if (box.x < o.x + o.w && box.x + box.w > o.x &&
+            box.y < o.y + o.h && box.y + box.h > o.y) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // ===== 루프 =====
     let rafId = null;
 
     function startGame(){
       cancelAnimationFrame(rafId);
       running = true; score = 0;
+      obstacles.length = 0; spawnTimer = 0; baseSpeed = 3;
+      pig.y = groundY() - 20; vy = 0; onGround = true;
+
       startScreen.style.display = "none";
       gameOverScreen.style.display = "none";
       hud.style.display = "flex";
@@ -230,37 +253,52 @@
 
     function loop(){
       if (!running) return;
+      ctx.clearRect(0,0,W,H);
 
-      // 배경
-      ctx.clearRect(0, 0, W, H);
       // 바닥
       ctx.fillStyle = "#f0f0f0";
-      ctx.fillRect(0, H - 50, W, 50);
+      ctx.fillRect(0, groundY(), W, 50);
 
-      // 캐릭터(이모지) - 시스템 이모지 모양은 OS마다 다를 수 있음
+      // 중력/점프
+      vy += 0.7;
+      pig.y += vy;
+      if (pig.y >= groundY() - 20) {
+        pig.y = groundY() - 20;
+        vy = 0; onGround = true;
+      }
+
+      // 장애물 업데이트 & 렌더
+      updateObstacles();
+      drawObstacles();
+
+      // 캐릭터(오른쪽 바라보게 반전)
       ctx.fillStyle = "#333";
-      ctx.font = "24px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, emoji";
-      ctx.fillText("🐖", 100, H - 70);
+      ctx.font = EMOJI_FONT;
+      drawEmojiFacingRight(EMOJI, pig.x, pig.y);
 
-      // 점수 증가
+      // 충돌 체크
+      if (checkCollision()) {
+        endGame();
+        return;
+      }
+
+      // 점수
       score++;
       hudScore.textContent = score;
 
-      if (score > 300) {
-        endGame();
-      } else {
-        rafId = requestAnimationFrame(loop);
-      }
+      rafId = requestAnimationFrame(loop);
     }
 
-    // 페이지 숨김 시 루프 정리(선택)
+    // 페이지 숨김 시 루프 정리
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && running) {
-        cancelAnimationFrame(rafId);
-      } else if (!document.hidden && running) {
-        rafId = requestAnimationFrame(loop);
-      }
+      if (document.hidden && running) cancelAnimationFrame(rafId);
+      else if (!document.hidden && running) rafId = requestAnimationFrame(loop);
     });
+
+    // 스크롤 방지
+    document.addEventListener("touchmove", (e) => {
+      if (e.target === canvas || e.target.closest("#gameWrap")) e.preventDefault();
+    }, { passive: false });
   </script>
 </body>
 </html>
