@@ -117,7 +117,6 @@
     <div class="notice" id="appNotice">
       멀리멀리 뛰어라!
     </div>
-    <!-- ★ 요청에 따라 footer 완전 제거 -->
   </div>
 
   <!-- 전체 스크립트 -->
@@ -178,7 +177,7 @@
     const levelWrapRef = () => document.querySelector('#levels');
     const charGridRef = () => document.querySelector('#charGrid');
 
-    // dialog 폴리필 (iOS, 일부 안드로이드/데스크탑 구형)
+    // dialog 폴리필
     const supportsDialog = typeof HTMLDialogElement !== 'undefined' && !!HTMLDialogElement.prototype.showModal;
     function ensureDialogPolyfill(dlg){
       if(!supportsDialog){
@@ -204,7 +203,7 @@
     let selected = localStorage.getItem('mc_char_v21') || 'dog';
     let stage = Number(localStorage.getItem('mc_stage_v21') || '1');
 
-    // 오디오 (사용자 제스처 언락 필요)
+    // 오디오
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const audioCtx = AudioCtx ? new AudioCtx() : null;
     let soundOn = true, audioUnlocked = false;
@@ -248,15 +247,43 @@
     };
     const obstacles=[];
 
+    /* ▼▼▼ 난이도(속도 한템포 감소) ▼▼▼ */
     const LEVELS={
-      1:{ speedBase:.30, rampLow:.000035, rampMed:.000065, rampHigh:.00010, segMs:[18000,42000],
-          spawnMin:720*0.8, spawnMax:1150*0.8, mix:{block:.6,rolling:.25,tall:.15}, itemCooldown:5000, itemChance:.30, factor:1.00 },
-      2:{ speedBase:.34, rampLow:.00005, rampMed:.000085, rampHigh:.00013, segMs:[16000,38000],
-          spawnMin:630*0.8, spawnMax:1020*0.8, mix:{block:.35,rolling:.25,tall:.15,flying:.15,stack:.10}, itemCooldown:5600, itemChance:.30, factor:1.04 },
-      3:{ speedBase:.38, rampLow:.00007, rampMed:.00011, rampHigh:.00016, segMs:[14000,34000],
-          spawnMin:560*0.8, spawnMax:940*0.8, mix:{block:.20,rolling:.25,tall:.15,flying:.20,stack:.20}, itemCooldown:6000, itemChance:.30, factor:1.08 }
+      1:{ // Easy
+        speedBase:.28,            // .30 → .28
+        rampLow:.000031,          // .000035 → .000031
+        rampMed:.000058,          // .000065 → .000058
+        rampHigh:.000090,         // .00010  → .000090
+        segMs:[18000,42000],
+        spawnMin:720*0.8, spawnMax:1150*0.8,
+        mix:{block:.6,rolling:.25,tall:.15},
+        itemCooldown:5000, itemChance:.30,
+        factor:0.99               // 1.00 → 0.99
+      },
+      2:{ // Normal
+        speedBase:.32,            // .34 → .32
+        rampLow:.000045,          // .00005  → .000045
+        rampMed:.000077,          // .000085 → .000077
+        rampHigh:.000117,         // .00013  → .000117
+        segMs:[16000,38000],
+        spawnMin:630*0.8, spawnMax:1020*0.8,
+        mix:{block:.35,rolling:.25,tall:.15,flying:.15,stack:.10},
+        itemCooldown:5600, itemChance:.30,
+        factor:1.02               // 1.04 → 1.02
+      },
+      3:{ // Hard
+        speedBase:.36,            // .38 → .36
+        rampLow:.000063,          // .00007  → .000063
+        rampMed:.000100,          // .00011  → .000100
+        rampHigh:.000144,         // .00016  → .000144
+        segMs:[14000,34000],
+        spawnMin:560*0.8, spawnMax:940*0.8,
+        mix:{block:.20,rolling:.25,tall:.15,flying:.20,stack:.20},
+        itemCooldown:6000, itemChance:.30,
+        factor:1.05               // 1.08 → 1.05
+      }
     };
-    let config = LEVELS[stage] || LEVELS[1];
+    /* ▲▲▲ 난이도(속도 한템포 감소) 끝 ▲▲▲ */
 
     function piecewiseSpeed(t, lv){
       const ms1 = lv.segMs[0], ms2 = lv.segMs[1];
@@ -266,6 +293,7 @@
       const cap = 0.62;
       return (lv.speedBase + Math.min(cap, (low+med+high))) * (lv.factor||1);
     }
+    let config = LEVELS[stage] || LEVELS[1];
 
     function chooseType(){
       const m=config.mix, r=Math.random(); let a=0;
@@ -330,14 +358,13 @@
       const size = Math.max(w, h) * 1.05;
       ctx.save();
       ctx.translate(cx, 0);
-      ctx.scale(-1, 1); // 오른쪽 향하게 (입체감)
+      ctx.scale(-1, 1);
       ctx.font = `${Math.floor(size)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(emoji, 0, Math.round(cy)-1);
       ctx.restore();
     }
 
-    // UI 빌드: 캐릭터 / 레벨 (중복 정의 방지)
     function buildCharGrid(){
       const charGrid = charGridRef();
       if(!charGrid) return;
@@ -389,7 +416,6 @@
         e.preventDefault(); unlockAudio(); doJump();
       }
     }, {passive:false});
-    // 러닝 중 스크롤 방지 (iOS 사파리 포함)
     document.addEventListener('touchmove', (e)=>{ if(state.running){ e.preventDefault(); } }, {passive:false});
 
     // 루프
@@ -580,7 +606,6 @@
       renderBoard();
     }
 
-    // 이벤트 바인딩
     function onCharClick(e){
       const cell = e.target.closest('.char'); if(!cell) return;
       selected = cell.dataset.type;
@@ -589,7 +614,6 @@
     }
 
     function bindUI(){
-      // 캐릭터/레벨 선택 UI
       charGridRef().addEventListener('click', onCharClick);
       levelWrapRef().addEventListener('click', (e)=>{
         const btn = e.target.closest('.level'); if(!btn) return;
@@ -603,7 +627,6 @@
       playBtn.addEventListener('click', ()=>{ buildCharGrid(); startDlg.showModal(); });
       startOk.addEventListener('click', ()=>{
         startDlg.close();
-        // 안내는 alert 대신 음으로 대체(모바일 키보드 포커스 방해 방지)
         beep(760,.06,'sine',.06);
         startGame();
       });
@@ -638,7 +661,6 @@
       saveBtn.addEventListener('click', ()=> saveRecord());
     }
 
-    // 초기 페인트
     function firstPaint(){
       buildCharGrid();
       const prevLvl = levelWrapRef().querySelector(`[data-stage="${stage}"]`) || levelWrapRef().firstElementChild;
